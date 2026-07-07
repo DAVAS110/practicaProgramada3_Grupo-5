@@ -26,16 +26,25 @@ public class Estudiante {
         this.observaciones = observaciones;
     }
 
-    public Estudiante(String codigoMatricula, String identificacion, String nombreEstudiante, String observaciones, CursoEstudiante curso, EstadoMatricula estado) {
+    public Estudiante(String codigoMatricula, String identificacion, String nombreEstudiante, String observaciones, CursoEstudiante curso, EstadoMatricula estado, int creditos) {
         this.codigoMatricula = codigoMatricula;
         this.identificacion = identificacion;
         this.nombreEstudiante = nombreEstudiante;
         this.observaciones = observaciones;
         this.curso = curso;
         this.estado = estado;
+        this.creditos = creditos;
     }    
     
     //Getters and Setters
+
+    public int getCreditos() {
+        return creditos;
+    }
+
+    public void setCreditos(int creditos) {
+        this.creditos = creditos;
+    }
 
     public EstadoMatricula getEstado() {
         return estado;
