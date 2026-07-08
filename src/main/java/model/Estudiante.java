@@ -85,6 +85,14 @@ public class Estudiante {
         this.observaciones = observaciones;
     }
 
+    public int getCreditos() {
+        return creditos;
+    }
+
+    public void setCreditos(int creditos) {
+        this.creditos = creditos;
+    }
+
     @Override
     public String toString() {
         return "Estudiante{" + "estado=" + estado + 
