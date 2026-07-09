@@ -109,7 +109,8 @@ public class EstudianteDialog extends javax.swing.JDialog {
             return;
         }
 
-        result = new Estudiante(codigo, identificacion, nombre, observaciones);        dispose();
+        result = new Estudiante(codigo, identificacion, nombre, observaciones, curso, estado, creditos);
+        dispose();
     }
             
     @SuppressWarnings("unchecked")

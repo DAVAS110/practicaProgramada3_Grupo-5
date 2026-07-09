@@ -7,6 +7,9 @@ package ui;
 import java.util.List;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
+import exceptions.RegistroDuplicadoException;
+import exceptions.RegistroNoEncontradoException;
+import exceptions.ValidacionException;
 import model.Estudiante;
 import service.GestorMatriculas;
 
@@ -16,14 +19,16 @@ import service.GestorMatriculas;
  */
 public class Principal extends javax.swing.JFrame {
 
-    private GestorMatriculas gestor = new GestorMatriculas();
+    private final GestorMatriculas gestor;
     private DefaultTableModel modeloTabla;
 
     /**
      * Creates new form Principal
+     * @param gestor
      */
-    public Principal() {
+    public Principal(GestorMatriculas gestor) {
         initComponents();
+        this.gestor = gestor;
         setLocationRelativeTo(null);
         setTitle("Gestión de Matrícula - Persona 3");
         configurarTabla();
@@ -88,6 +93,13 @@ public class Principal extends javax.swing.JFrame {
                 return;
             }
         }
+    }
+
+    private void activarAcciones(boolean activo) {
+        mnuRegistrar.setEnabled(activo);
+        mnuEditar.setEnabled(activo);
+        mnuEliminar.setEnabled(activo);
+        mnuBuscar.setEnabled(activo);
     }
 
     /**
@@ -311,21 +323,55 @@ public class Principal extends javax.swing.JFrame {
     }//GEN-LAST:event_mnuNuevoActionPerformed
 
     private void mnuRegistrarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuRegistrarActionPerformed
-        JOptionPane.showMessageDialog(this,
-                "Esta opción se conectará con el JDialog de registrar/editar.",
-                "Registrar matrícula",
-                JOptionPane.INFORMATION_MESSAGE);
+        activarAcciones(false);
+        try {
+            EstudianteDialog dialog = new EstudianteDialog(this, EstudianteDialog.Mode.CREAR, null);
+            dialog.setVisible(true);
+
+            Estudiante nuevo = dialog.getResult();
+
+            if (nuevo != null) {
+                try {
+                    gestor.crear(nuevo);
+                } catch (ValidacionException | RegistroDuplicadoException ex) {
+                    JOptionPane.showMessageDialog(this,
+                            ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    refrescarTabla();
+                }
+            }
+        } finally {
+            activarAcciones(true);
+        }
     }//GEN-LAST:event_mnuRegistrarActionPerformed
 
     private void mnuEditarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuEditarActionPerformed
         String codigo = obtenerCodigoSeleccionado();
 
         if (codigo != null) {
-            JOptionPane.showMessageDialog(this,
-                    "Código seleccionado para editar: " + codigo
-                    + "\nEsta opción se conectará con el JDialog de registrar/editar.",
-                    "Editar matrícula",
-                    JOptionPane.INFORMATION_MESSAGE);
+            activarAcciones(false);
+            try {
+                Estudiante existente = gestor.buscar(codigo);
+
+                EstudianteDialog dialog = new EstudianteDialog(this, EstudianteDialog.Mode.EDITAR, existente);
+                dialog.setVisible(true);
+
+                Estudiante editado = dialog.getResult();
+
+                if (editado != null) {
+                    gestor.editar(editado);
+                }
+            } catch (ValidacionException | RegistroDuplicadoException | RegistroNoEncontradoException ex) {
+                JOptionPane.showMessageDialog(this,
+                        ex.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            } finally {
+                refrescarTabla();
+                activarAcciones(true);
+            }
         }
     }//GEN-LAST:event_mnuEditarActionPerformed
 
@@ -333,11 +379,25 @@ public class Principal extends javax.swing.JFrame {
         String codigo = obtenerCodigoSeleccionado();
 
         if (codigo != null) {
-            JOptionPane.showMessageDialog(this,
-                    "Código seleccionado para eliminar: " + codigo
-                    + "\nLa confirmación con JOptionPane la completa Persona 4.",
-                    "Eliminar matrícula",
-                    JOptionPane.INFORMATION_MESSAGE);
+            int confirmacion = JOptionPane.showConfirmDialog(this,
+                    "¿Desea eliminar la matrícula con código " + codigo + "?",
+                    "Confirmar eliminación",
+                    JOptionPane.YES_NO_OPTION);
+
+            if (confirmacion == JOptionPane.YES_OPTION) {
+                activarAcciones(false);
+                try {
+                    gestor.eliminar(codigo);
+                } catch (ValidacionException | RegistroNoEncontradoException ex) {
+                    JOptionPane.showMessageDialog(this,
+                            ex.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    refrescarTabla();
+                    activarAcciones(true);
+                }
+            }
         }
     }//GEN-LAST:event_mnuEliminarActionPerformed
 
@@ -348,6 +408,7 @@ public class Principal extends javax.swing.JFrame {
             return;
         }
 
+        activarAcciones(false);
         try {
             Estudiante e = gestor.buscar(codigo.trim());
 
@@ -370,6 +431,7 @@ public class Principal extends javax.swing.JFrame {
                     JOptionPane.ERROR_MESSAGE);
         } finally {
             refrescarTabla();
+            activarAcciones(true);
         }
     }//GEN-LAST:event_mnuBuscarActionPerformed
 
@@ -384,40 +446,6 @@ public class Principal extends javax.swing.JFrame {
                 JOptionPane.INFORMATION_MESSAGE);
     }//GEN-LAST:event_mnuAcercaActionPerformed
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Principal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Principal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Principal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(Principal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new Principal().setVisible(true);
-            }
-        });
-    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnActualizar;
