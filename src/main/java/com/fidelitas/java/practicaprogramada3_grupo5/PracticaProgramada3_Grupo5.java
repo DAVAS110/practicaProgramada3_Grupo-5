@@ -14,7 +14,6 @@ import ui.Principal;
 public class PracticaProgramada3_Grupo5 {
 
     public static void main(String[] args) {
-        /* Set the Nimbus look and feel */
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {

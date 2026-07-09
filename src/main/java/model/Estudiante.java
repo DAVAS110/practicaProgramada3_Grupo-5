@@ -16,7 +16,7 @@ public class Estudiante {
     private String observaciones;
     private CursoEstudiante curso;
     private EstadoMatricula estado;
-    private int creditos; //terminar funcionalidad con los creditos
+    private int creditos;
     
     //Constructor 
     public Estudiante(String codigoMatricula, String identificacion, String nombreEstudiante, String observaciones) {

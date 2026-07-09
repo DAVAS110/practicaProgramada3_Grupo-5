@@ -30,8 +30,8 @@ public class GestorMatriculas {
 
     //Constructor de gestor de matricula
     public GestorMatriculas() {
-        listaMatriculas.put("E-001", new Estudiante("232323", "E-001", "David Vargas", "Ninguna", CursoEstudiante.DISENO_SISTEMAS, EstadoMatricula.ACTIVA, 3));
-        listaMatriculas.put("E-002", new Estudiante("242424", "E-002", "Paulo Barrantes", "Ninguna", CursoEstudiante.DISENO_SISTEMAS, EstadoMatricula.ACTIVA, 4));
+        listaMatriculas.put("E-001", new Estudiante("E-001", "232323", "David Vargas", "Ninguna", CursoEstudiante.DISENO_SISTEMAS, EstadoMatricula.ACTIVA, 3));
+        listaMatriculas.put("E-002", new Estudiante("E-002", "242424", "Paulo Barrantes", "Ninguna", CursoEstudiante.DISENO_SISTEMAS, EstadoMatricula.ACTIVA, 4));
     }
 
     //Funcion crear matricula
@@ -49,7 +49,7 @@ public class GestorMatriculas {
     }
     
     //Funcion editar matricula
-    public void editar(Estudiante e) throws ValidacionException, RegistroDuplicadoException, RegistroNoEncontradoException {
+    public void editar(Estudiante e) throws ValidacionException, RegistroNoEncontradoException {
         validar(e);
         
         String key = e.getCodigoMatricula().trim();

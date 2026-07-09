@@ -138,7 +138,7 @@ public class EstudianteDialog extends javax.swing.JDialog {
         jScrollPane1 = new javax.swing.JScrollPane();
         txtObservaciones = new javax.swing.JTextArea();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         lblCurso.setText("Curso:");
 
@@ -157,9 +157,7 @@ public class EstudianteDialog extends javax.swing.JDialog {
         lblTitulo.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         lblTitulo.setText("Registrar matrícula");
 
-        lblCodigo.setText("Código:");
-
-        cbCurso.addActionListener(this::cbCursoActionPerformed);
+        lblCodigo.setText("Código de Matrícula:");
 
         lblNombre.setText("Nombre:");
 
@@ -253,10 +251,6 @@ public class EstudianteDialog extends javax.swing.JDialog {
         result = null;
         dispose();
     }//GEN-LAST:event_btnCancelarActionPerformed
-
-    private void cbCursoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cbCursoActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_cbCursoActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnCancelar;

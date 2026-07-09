@@ -1,42 +1,84 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package ui;
 
-import java.util.List;
-import javax.swing.JOptionPane;
-import javax.swing.table.DefaultTableModel;
 import exceptions.RegistroDuplicadoException;
 import exceptions.RegistroNoEncontradoException;
 import exceptions.ValidacionException;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.util.List;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingConstants;
+import javax.swing.WindowConstants;
+import javax.swing.table.DefaultTableModel;
+import model.CursoEstudiante;
+import model.EstadoMatricula;
 import model.Estudiante;
 import service.GestorMatriculas;
 
-/**
- *
- * @author lajch
- */
-public class Principal extends javax.swing.JFrame {
+public class Principal extends JFrame {
 
     private final GestorMatriculas gestor;
     private DefaultTableModel modeloTabla;
 
-    /**
-     * Creates new form Principal
-     * @param gestor
-     */
+    private JTable tblMatriculas;
+    private JTextField txtCodigo;
+    private JTextField txtNombre;
+    private JTextField txtIdentificacion;
+    private JTextField txtCreditos;
+    private JComboBox<CursoEstudiante> cbCurso;
+    private JComboBox<EstadoMatricula> cbEstado;
+
+    private JButton btnRegistrar;
+    private JButton btnEditar;
+    private JButton btnBuscar;
+    private JButton btnEliminar;
+    private JButton btnLimpiar;
+    private JButton btnActualizar;
+    private JButton btnSalir;
+
+    private JMenuItem mnuNuevo;
+    private JMenuItem mnuSalir;
+    private JMenuItem mnuRegistrar;
+    private JMenuItem mnuEditar;
+    private JMenuItem mnuEliminar;
+    private JMenuItem mnuBuscar;
+    private JMenuItem mnuAcerca;
+
     public Principal(GestorMatriculas gestor) {
-        initComponents();
         this.gestor = gestor;
+        initComponents();
         setLocationRelativeTo(null);
-        setTitle("Gestión de Matrícula - Persona 3");
+        setTitle("Gestión de Matrícula - Grupo 5");
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                cerrar();
+            }
+        });
         configurarTabla();
         refrescarTabla();
     }
 
     private void configurarTabla() {
-
         modeloTabla = new DefaultTableModel(
                 new Object[]{"Código", "Estudiante", "Curso", "Créditos", "Estado"}, 0
         ) {
@@ -47,10 +89,26 @@ public class Principal extends javax.swing.JFrame {
         };
 
         tblMatriculas.setModel(modeloTabla);
+        tblMatriculas.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tblMatriculas.getSelectionModel().addListSelectionListener(evt -> {
+            if (evt.getValueIsAdjusting()) {
+                return;
+            }
+            int fila = tblMatriculas.getSelectedRow();
+            if (fila < 0) {
+                return;
+            }
+            String codigo = modeloTabla.getValueAt(fila, 0).toString();
+            try {
+                Estudiante e = gestor.buscar(codigo);
+                cargarFormMatricula(e);
+            } catch (ValidacionException | RegistroNoEncontradoException ex) {
+                mostrarError(ex.getMessage());
+            }
+        });
     }
 
     private void refrescarTabla() {
-
         modeloTabla.setRowCount(0);
 
         List<Estudiante> lista = gestor.listar();
@@ -66,28 +124,170 @@ public class Principal extends javax.swing.JFrame {
         }
     }
 
-    private String obtenerCodigoSeleccionado() {
+    private void registrar() {
+        activarAcciones(false);
+        try {
+            EstudianteDialog dialog = new EstudianteDialog(this, EstudianteDialog.Mode.CREAR, null);
+            dialog.setVisible(true);
 
-        int fila = tblMatriculas.getSelectedRow();
+            Estudiante nuevo = dialog.getResult();
+            if (nuevo == null) {
+                return;
+            }
 
-        if (fila == -1) {
-            JOptionPane.showMessageDialog(this,
-                    "Debe seleccionar una matrícula de la tabla.",
-                    "Aviso",
-                    JOptionPane.WARNING_MESSAGE);
-            return null;
+            try {
+                gestor.crear(nuevo);
+                limpiar();
+            } catch (ValidacionException | RegistroDuplicadoException ex) {
+                mostrarError(ex.getMessage());
+            } finally {
+                refrescarTabla();
+            }
+        } finally {
+            activarAcciones(true);
         }
-
-        return modeloTabla.getValueAt(fila, 0).toString();
     }
 
-    private void buscarEnTabla(String codigo) {
+    private void editar() {
+        String codigo = obtenerCodigo();
+        if (codigo == null) {
+            return;
+        }
 
+        activarAcciones(false);
+        try {
+            Estudiante existente;
+            try {
+                existente = gestor.buscar(codigo);
+            } catch (ValidacionException | RegistroNoEncontradoException ex) {
+                mostrarError(ex.getMessage());
+                return;
+            }
+
+            EstudianteDialog dialog = new EstudianteDialog(this, EstudianteDialog.Mode.EDITAR, existente);
+            dialog.setVisible(true);
+
+            Estudiante editado = dialog.getResult();
+            if (editado == null) {
+                return;
+            }
+
+            try {
+                gestor.editar(editado);
+                seleccionarFilaPorCodigo(editado.getCodigoMatricula());
+            } catch (ValidacionException | RegistroNoEncontradoException ex) {
+                mostrarError(ex.getMessage());
+            } finally {
+                refrescarTabla();
+            }
+        } finally {
+            activarAcciones(true);
+        }
+    }
+
+    private void buscar() {
+        activarAcciones(false);
+        try {
+            String codigo = txtCodigo.getText();
+
+            try {
+                Estudiante e = gestor.buscar(codigo);
+                cargarFormMatricula(e);
+                seleccionarFilaPorCodigo(e.getCodigoMatricula());
+            } catch (ValidacionException | RegistroNoEncontradoException ex) {
+                mostrarError(ex.getMessage());
+            } finally {
+                txtCodigo.requestFocusInWindow();
+                txtCodigo.selectAll();
+            }
+        } finally {
+            activarAcciones(true);
+        }
+    }
+
+    private void eliminar() {
+        String codigo = obtenerCodigo();
+        if (codigo == null) {
+            return;
+        }
+
+        int opt = JOptionPane.showConfirmDialog(
+                this,
+                "¿Desea eliminar la matrícula " + codigo + "?",
+                "Confirmar eliminación",
+                JOptionPane.YES_NO_OPTION
+        );
+        if (opt != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        activarAcciones(false);
+        try {
+            try {
+                gestor.eliminar(codigo);
+                limpiar();
+            } catch (ValidacionException | RegistroNoEncontradoException ex) {
+                mostrarError(ex.getMessage());
+            } finally {
+                refrescarTabla();
+            }
+        } finally {
+            activarAcciones(true);
+        }
+    }
+
+    private void cerrar() {
+        int opt = JOptionPane.showConfirmDialog(
+                this,
+                "¿Desea salir del sistema?",
+                "Salir",
+                JOptionPane.YES_NO_OPTION
+        );
+        if (opt == JOptionPane.YES_OPTION) {
+            dispose();
+            System.exit(0);
+        }
+    }
+
+    private void limpiar() {
+        txtCodigo.setText("");
+        txtNombre.setText("");
+        txtIdentificacion.setText("");
+        txtCreditos.setText("");
+        cbCurso.setSelectedIndex(0);
+        cbEstado.setSelectedIndex(0);
+        tblMatriculas.clearSelection();
+        txtCodigo.requestFocusInWindow();
+    }
+
+    private void cargarFormMatricula(Estudiante e) {
+        txtCodigo.setText(e.getCodigoMatricula());
+        txtNombre.setText(e.getNombreEstudiante());
+        txtIdentificacion.setText(e.getIdentificacion());
+        cbCurso.setSelectedItem(e.getCurso());
+        txtCreditos.setText(String.valueOf(e.getCreditos()));
+        cbEstado.setSelectedItem(e.getEstado());
+    }
+
+    private String obtenerCodigo() {
+        String codigo = txtCodigo.getText() != null ? txtCodigo.getText().trim() : "";
+        if (!codigo.isEmpty()) {
+            return codigo;
+        }
+
+        int fila = tblMatriculas.getSelectedRow();
+        if (fila >= 0) {
+            return modeloTabla.getValueAt(fila, 0).toString();
+        }
+
+        mostrarError("Indique el código de matrícula o seleccione un registro en la tabla.");
+        return null;
+    }
+
+    private void seleccionarFilaPorCodigo(String codigo) {
         for (int i = 0; i < modeloTabla.getRowCount(); i++) {
-
-            String codigoTabla = modeloTabla.getValueAt(i, 0).toString();
-
-            if (codigoTabla.equals(codigo)) {
+            String c = modeloTabla.getValueAt(i, 0).toString();
+            if (c.equalsIgnoreCase(codigo)) {
                 tblMatriculas.setRowSelectionInterval(i, i);
                 tblMatriculas.scrollRectToVisible(tblMatriculas.getCellRect(i, 0, true));
                 return;
@@ -100,373 +300,170 @@ public class Principal extends javax.swing.JFrame {
         mnuEditar.setEnabled(activo);
         mnuEliminar.setEnabled(activo);
         mnuBuscar.setEnabled(activo);
+        btnRegistrar.setEnabled(activo);
+        btnEditar.setEnabled(activo);
+        btnEliminar.setEnabled(activo);
+        btnBuscar.setEnabled(activo);
     }
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void mostrarError(String msg) {
+        JOptionPane.showMessageDialog(this, msg, "Atención", JOptionPane.ERROR_MESSAGE);
+    }
+
     private void initComponents() {
+        setJMenuBar(construirMenu());
 
-        jPanel1 = new javax.swing.JPanel();
-        lblTitulo = new javax.swing.JLabel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        tblMatriculas = new javax.swing.JTable();
-        btnActualizar = new javax.swing.JButton();
-        btnSalir = new javax.swing.JButton();
-        lblInstruccion = new javax.swing.JLabel();
-        jMenuBar1 = new javax.swing.JMenuBar();
-        menuArchivo = new javax.swing.JMenu();
-        mnuNuevo = new javax.swing.JMenuItem();
-        jSeparator1 = new javax.swing.JPopupMenu.Separator();
-        mnuSalir = new javax.swing.JMenuItem();
-        menuMatriculas = new javax.swing.JMenu();
-        mnuRegistrar = new javax.swing.JMenuItem();
-        mnuEditar = new javax.swing.JMenuItem();
-        mnuEliminar = new javax.swing.JMenuItem();
-        jSeparator2 = new javax.swing.JPopupMenu.Separator();
-        mnuBuscar = new javax.swing.JMenuItem();
-        menuAyuda = new javax.swing.JMenu();
-        mnuAcerca = new javax.swing.JMenuItem();
+        JPanel panelPrincipal = new JPanel(new BorderLayout(10, 10));
+        panelPrincipal.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        JLabel lblTitulo = new JLabel("Gestión de Matrícula", SwingConstants.CENTER);
+        lblTitulo.setFont(lblTitulo.getFont().deriveFont(Font.BOLD, 20f));
 
-        jPanel1.setBorder(javax.swing.BorderFactory.createTitledBorder("Listado de matrículas"));
+        JPanel panelNorte = new JPanel(new BorderLayout(10, 10));
+        panelNorte.add(lblTitulo, BorderLayout.NORTH);
+        panelNorte.add(construirPanelFormulario(), BorderLayout.CENTER);
 
-        lblTitulo.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        lblTitulo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        lblTitulo.setText("Gestión de Matrícula");
+        panelPrincipal.add(panelNorte, BorderLayout.NORTH);
+        panelPrincipal.add(construirPanelTabla(), BorderLayout.CENTER);
+        panelPrincipal.add(construirPanelInferior(), BorderLayout.SOUTH);
 
-        tblMatriculas.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
+        setContentPane(panelPrincipal);
+        setMinimumSize(new Dimension(720, 560));
+        pack();
+    }
 
-            },
-            new String [] {
-                "Código", "Estudiante", "Curso", "Créditos", "Estado"
-            }
-        ) {
-            boolean[] canEdit = new boolean [] {
-                false, false, false, false, false
-            };
+    private JMenuBar construirMenu() {
+        JMenuBar jMenuBar1 = new JMenuBar();
 
-            public boolean isCellEditable(int rowIndex, int columnIndex) {
-                return canEdit [columnIndex];
-            }
-        });
-        tblMatriculas.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-        jScrollPane1.setViewportView(tblMatriculas);
-
-        btnActualizar.setText("Actualizar tabla");
-        btnActualizar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnActualizarActionPerformed(evt);
-            }
-        });
-
-        btnSalir.setText("Salir");
-        btnSalir.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnSalirActionPerformed(evt);
-            }
-        });
-
-        lblInstruccion.setText("Seleccione una fila para editar, eliminar o consultar desde el menú Matrículas.");
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 690, Short.MAX_VALUE)
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(lblInstruccion)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(btnActualizar)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(btnSalir)))
-                .addContainerGap())
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(lblInstruccion)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 303, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(btnActualizar)
-                    .addComponent(btnSalir))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
-        menuArchivo.setText("Archivo");
-
-        mnuNuevo.setText("Nuevo");
-        mnuNuevo.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuNuevoActionPerformed(evt);
-            }
-        });
+        JMenu menuArchivo = new JMenu("Archivo");
+        mnuNuevo = new JMenuItem("Nuevo");
+        mnuNuevo.addActionListener(evt -> limpiar());
+        mnuSalir = new JMenuItem("Salir");
+        mnuSalir.addActionListener(evt -> cerrar());
         menuArchivo.add(mnuNuevo);
-        menuArchivo.add(jSeparator1);
-
-        mnuSalir.setText("Salir");
-        mnuSalir.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuSalirActionPerformed(evt);
-            }
-        });
+        menuArchivo.addSeparator();
         menuArchivo.add(mnuSalir);
 
-        jMenuBar1.add(menuArchivo);
-
-        menuMatriculas.setText("Matrículas");
-
-        mnuRegistrar.setText("Registrar");
-        mnuRegistrar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuRegistrarActionPerformed(evt);
-            }
-        });
+        JMenu menuMatriculas = new JMenu("Matrículas");
+        mnuRegistrar = new JMenuItem("Registrar");
+        mnuRegistrar.addActionListener(evt -> registrar());
+        mnuEditar = new JMenuItem("Editar");
+        mnuEditar.addActionListener(evt -> editar());
+        mnuEliminar = new JMenuItem("Eliminar");
+        mnuEliminar.addActionListener(evt -> eliminar());
+        mnuBuscar = new JMenuItem("Buscar");
+        mnuBuscar.addActionListener(evt -> buscar());
         menuMatriculas.add(mnuRegistrar);
-
-        mnuEditar.setText("Editar");
-        mnuEditar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuEditarActionPerformed(evt);
-            }
-        });
         menuMatriculas.add(mnuEditar);
-
-        mnuEliminar.setText("Eliminar");
-        mnuEliminar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuEliminarActionPerformed(evt);
-            }
-        });
         menuMatriculas.add(mnuEliminar);
-        menuMatriculas.add(jSeparator2);
-
-        mnuBuscar.setText("Buscar");
-        mnuBuscar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuBuscarActionPerformed(evt);
-            }
-        });
+        menuMatriculas.addSeparator();
         menuMatriculas.add(mnuBuscar);
 
-        jMenuBar1.add(menuMatriculas);
-
-        menuAyuda.setText("Ayuda");
-
-        mnuAcerca.setText("Acerca de");
-        mnuAcerca.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuAcercaActionPerformed(evt);
-            }
-        });
+        JMenu menuAyuda = new JMenu("Ayuda");
+        mnuAcerca = new JMenuItem("Acerca de");
+        mnuAcerca.addActionListener(evt -> JOptionPane.showMessageDialog(
+                this,
+                "Práctica Programada #3\nGestión de Matrícula\nSC-303 Programación Cliente/Servidor Concurrente\nGrupo 5",
+                "Acerca de",
+                JOptionPane.INFORMATION_MESSAGE));
         menuAyuda.add(mnuAcerca);
 
+        jMenuBar1.add(menuArchivo);
+        jMenuBar1.add(menuMatriculas);
         jMenuBar1.add(menuAyuda);
+        return jMenuBar1;
+    }
 
-        setJMenuBar(jMenuBar1);
+    private JPanel construirPanelFormulario() {
+        JPanel panel = new JPanel(new BorderLayout(5, 10));
+        panel.setBorder(BorderFactory.createTitledBorder("Datos de Matrícula"));
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(lblTitulo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(lblTitulo)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
+        JPanel campos = new JPanel(new GridBagLayout());
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(4, 4, 4, 4);
+        gc.fill = GridBagConstraints.HORIZONTAL;
 
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
+        txtCodigo = new JTextField(12);
+        txtNombre = new JTextField(20);
+        txtIdentificacion = new JTextField(12);
+        txtCreditos = new JTextField(5);
+        cbCurso = new JComboBox<>(CursoEstudiante.values());
+        cbEstado = new JComboBox<>(EstadoMatricula.values());
 
-    private void btnActualizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnActualizarActionPerformed
-        refrescarTabla();
-    }//GEN-LAST:event_btnActualizarActionPerformed
+        gc.gridx = 0;
+        gc.gridy = 0;
+        campos.add(new JLabel("Código de Matrícula:"), gc);
+        gc.gridx = 1;
+        campos.add(txtCodigo, gc);
+        gc.gridx = 2;
+        campos.add(new JLabel("Identificación:"), gc);
+        gc.gridx = 3;
+        campos.add(txtIdentificacion, gc);
 
-    private void btnSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSalirActionPerformed
-        System.exit(0);
-    }//GEN-LAST:event_btnSalirActionPerformed
+        gc.gridx = 0;
+        gc.gridy = 1;
+        campos.add(new JLabel("Nombre:"), gc);
+        gc.gridx = 1;
+        gc.gridwidth = 3;
+        campos.add(txtNombre, gc);
+        gc.gridwidth = 1;
 
-    private void mnuSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuSalirActionPerformed
-        System.exit(0);
-    }//GEN-LAST:event_mnuSalirActionPerformed
+        gc.gridx = 0;
+        gc.gridy = 2;
+        campos.add(new JLabel("Curso:"), gc);
+        gc.gridx = 1;
+        campos.add(cbCurso, gc);
+        gc.gridx = 2;
+        campos.add(new JLabel("Créditos (1 a 6):"), gc);
+        gc.gridx = 3;
+        campos.add(txtCreditos, gc);
 
-    private void mnuNuevoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuNuevoActionPerformed
-        refrescarTabla();
-        JOptionPane.showMessageDialog(this,
-                "Tabla actualizada correctamente.",
-                "Nuevo",
-                JOptionPane.INFORMATION_MESSAGE);
-    }//GEN-LAST:event_mnuNuevoActionPerformed
+        gc.gridx = 0;
+        gc.gridy = 3;
+        campos.add(new JLabel("Estado:"), gc);
+        gc.gridx = 1;
+        campos.add(cbEstado, gc);
 
-    private void mnuRegistrarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuRegistrarActionPerformed
-        activarAcciones(false);
-        try {
-            EstudianteDialog dialog = new EstudianteDialog(this, EstudianteDialog.Mode.CREAR, null);
-            dialog.setVisible(true);
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        btnRegistrar = new JButton("Registrar");
+        btnRegistrar.addActionListener(evt -> registrar());
+        btnEditar = new JButton("Editar");
+        btnEditar.addActionListener(evt -> editar());
+        btnBuscar = new JButton("Buscar");
+        btnBuscar.addActionListener(evt -> buscar());
+        btnEliminar = new JButton("Eliminar");
+        btnEliminar.addActionListener(evt -> eliminar());
+        btnLimpiar = new JButton("Limpiar");
+        btnLimpiar.addActionListener(evt -> limpiar());
+        toolbar.add(btnRegistrar);
+        toolbar.add(btnEditar);
+        toolbar.add(btnBuscar);
+        toolbar.add(btnEliminar);
+        toolbar.add(btnLimpiar);
 
-            Estudiante nuevo = dialog.getResult();
+        panel.add(campos, BorderLayout.CENTER);
+        panel.add(toolbar, BorderLayout.SOUTH);
+        return panel;
+    }
 
-            if (nuevo != null) {
-                try {
-                    gestor.crear(nuevo);
-                } catch (ValidacionException | RegistroDuplicadoException ex) {
-                    JOptionPane.showMessageDialog(this,
-                            ex.getMessage(),
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                } finally {
-                    refrescarTabla();
-                }
-            }
-        } finally {
-            activarAcciones(true);
-        }
-    }//GEN-LAST:event_mnuRegistrarActionPerformed
+    private JPanel construirPanelTabla() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("Listado de matrículas"));
 
-    private void mnuEditarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuEditarActionPerformed
-        String codigo = obtenerCodigoSeleccionado();
+        tblMatriculas = new JTable();
+        JScrollPane scroll = new JScrollPane(tblMatriculas);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
 
-        if (codigo != null) {
-            activarAcciones(false);
-            try {
-                Estudiante existente = gestor.buscar(codigo);
-
-                EstudianteDialog dialog = new EstudianteDialog(this, EstudianteDialog.Mode.EDITAR, existente);
-                dialog.setVisible(true);
-
-                Estudiante editado = dialog.getResult();
-
-                if (editado != null) {
-                    gestor.editar(editado);
-                }
-            } catch (ValidacionException | RegistroDuplicadoException | RegistroNoEncontradoException ex) {
-                JOptionPane.showMessageDialog(this,
-                        ex.getMessage(),
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE);
-            } finally {
-                refrescarTabla();
-                activarAcciones(true);
-            }
-        }
-    }//GEN-LAST:event_mnuEditarActionPerformed
-
-    private void mnuEliminarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuEliminarActionPerformed
-        String codigo = obtenerCodigoSeleccionado();
-
-        if (codigo != null) {
-            int confirmacion = JOptionPane.showConfirmDialog(this,
-                    "¿Desea eliminar la matrícula con código " + codigo + "?",
-                    "Confirmar eliminación",
-                    JOptionPane.YES_NO_OPTION);
-
-            if (confirmacion == JOptionPane.YES_OPTION) {
-                activarAcciones(false);
-                try {
-                    gestor.eliminar(codigo);
-                } catch (ValidacionException | RegistroNoEncontradoException ex) {
-                    JOptionPane.showMessageDialog(this,
-                            ex.getMessage(),
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                } finally {
-                    refrescarTabla();
-                    activarAcciones(true);
-                }
-            }
-        }
-    }//GEN-LAST:event_mnuEliminarActionPerformed
-
-    private void mnuBuscarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuBuscarActionPerformed
-        String codigo = JOptionPane.showInputDialog(this, "Digite el código de matrícula:");
-
-        if (codigo == null || codigo.trim().isEmpty()) {
-            return;
-        }
-
-        activarAcciones(false);
-        try {
-            Estudiante e = gestor.buscar(codigo.trim());
-
-            JOptionPane.showMessageDialog(this,
-                    "Matrícula encontrada:\n\n"
-                    + "Código: " + e.getCodigoMatricula() + "\n"
-                    + "Estudiante: " + e.getNombreEstudiante() + "\n"
-                    + "Curso: " + e.getCurso() + "\n"
-                    + "Créditos: " + e.getCreditos() + "\n"
-                    + "Estado: " + e.getEstado(),
-                    "Buscar matrícula",
-                    JOptionPane.INFORMATION_MESSAGE);
-
-            buscarEnTabla(e.getCodigoMatricula());
-
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this,
-                    e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
-        } finally {
-            refrescarTabla();
-            activarAcciones(true);
-        }
-    }//GEN-LAST:event_mnuBuscarActionPerformed
-
-    private void mnuAcercaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuAcercaActionPerformed
-        JOptionPane.showMessageDialog(this,
-                "Práctica Programada #3\n"
-                + "Gestión de Matrícula\n"
-                + "SC-303 Programación Cliente/Servidor Concurrente\n"
-                + "Grupo 5\n\n"
-                + "Persona 3: Ventana principal, menú y tabla.",
-                "Acerca de",
-                JOptionPane.INFORMATION_MESSAGE);
-    }//GEN-LAST:event_mnuAcercaActionPerformed
-
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnActualizar;
-    private javax.swing.JButton btnSalir;
-    private javax.swing.JMenuBar jMenuBar1;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JPopupMenu.Separator jSeparator1;
-    private javax.swing.JPopupMenu.Separator jSeparator2;
-    private javax.swing.JLabel lblInstruccion;
-    private javax.swing.JLabel lblTitulo;
-    private javax.swing.JMenu menuArchivo;
-    private javax.swing.JMenu menuAyuda;
-    private javax.swing.JMenu menuMatriculas;
-    private javax.swing.JMenuItem mnuAcerca;
-    private javax.swing.JMenuItem mnuBuscar;
-    private javax.swing.JMenuItem mnuEditar;
-    private javax.swing.JMenuItem mnuEliminar;
-    private javax.swing.JMenuItem mnuNuevo;
-    private javax.swing.JMenuItem mnuRegistrar;
-    private javax.swing.JMenuItem mnuSalir;
-    private javax.swing.JTable tblMatriculas;
-    // End of variables declaration//GEN-END:variables
+    private JPanel construirPanelInferior() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 8));
+        btnActualizar = new JButton("Actualizar tabla");
+        btnActualizar.addActionListener(evt -> refrescarTabla());
+        btnSalir = new JButton("Salir");
+        btnSalir.addActionListener(evt -> cerrar());
+        panel.add(btnActualizar);
+        panel.add(btnSalir);
+        return panel;
+    }
 }
